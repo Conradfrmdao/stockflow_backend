@@ -159,4 +159,72 @@ const createSubUser = async (req,res)=>{
     }
 }
 
-export {createUser,createSubUser}
+const updateUser = async (req,res)=>{
+    try{
+        const {email,name,role}= req.body
+        const targetUserId= req.params.id 
+        const userId = req.user.id 
+
+
+        if(targetUserId === userId && "role" in req.body){
+            return res.status(400).json({
+                message : "You Are not allowed to Change your Role"
+            })
+        }
+        
+        const dataToUpdate={}
+        if(name){
+            dataToUpdate.name=name
+        }
+        if(email){
+            const sanitizedEmail= email.replace(/\s/g, "").toLowerCase();
+            dataToUpdate.email=sanitizedEmail
+        }
+        if(role){
+            const sanitizedRole = role.trim().toUpperCase();
+            if(!["MANAGER", "STAFF"].includes(sanitizedRole)){
+                return res.status(400).json({
+                    message : "Invalid role. Allowed roles are MANAGER and STAFF."
+                })
+            }
+            if(req.user.role === "MANAGER" && sanitizedRole !== "STAFF"){
+                return res.status(400).json({
+                    message : "Managers can only assign STAFF"
+                })
+            }
+
+            dataToUpdate.role = sanitizedRole
+        }
+
+        if(Object.keys(dataToUpdate).length === 0){
+            return res.status(400).json({
+                message : "No Data to Update"
+            })
+        }
+
+        const updatedUser = await prisma.user.update({
+            where : {
+                id: targetUserId,
+                organizationId : req.user.organizationId
+            },
+            data : dataToUpdate
+        })
+
+        return res.status(200).json({
+            message : "Update Successful",
+            data: {
+                name : updatedUser.name,
+                email : updatedUser.email,
+                role : updatedUser.role
+            }
+        })
+    }catch (error) {
+        if (error.code === "P2025") {
+        return res.status(404).json({ message: "User not found" })
+    }
+    console.error("Error updating user:", error)
+    return res.status(500).json({ message: "Internal Server Error" })
+    }
+}
+
+export {createUser,createSubUser,updateUser}
