@@ -1,0 +1,247 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+model Organization {
+  id String @id @default(uuid()) 
+  name String 
+  createdById String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+
+  //relationships
+  creator User @relation("OrganizationCreator",fields: [createdById], references: [id],onDelete: Cascade)
+
+  categories Category[] 
+  products Product[]
+  suppliers Supplier[]
+  productsSuppliers ProductSupplier[]
+  stockMovements StockMovement[]
+  purchaseOrders PurchaseOrder[]
+  purchaseOrderItems PurchaseOrderItem[]
+  users User[] @relation("UserOrganization")
+
+
+}
+
+model User {
+  id String @id @default(uuid())
+  name String 
+  email String @unique
+  passwordHash String
+  role  RoleOptions 
+  organizationId String?
+  createdById String?
+  isActive Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+
+  //relationships
+  organization Organization? @relation("UserOrganization",fields: [organizationId],references: [id])
+  creator User? @relation("UserCreator",fields: [createdById],references: [id])
+
+
+  organizations Organization[] @relation("OrganizationCreator")
+  categories Category[]
+  products Product[]
+  suppliers Supplier[]
+  stockMovements StockMovement[]
+  purchaseOrders PurchaseOrder[] @relation("PurchaseOrderCreator")
+  refreshTokens RefreshToken[]
+  creators User[] @relation("UserCreator")
+  approvals PurchaseOrder[]  @relation("ApprovedBy")
+  received PurchaseOrder[] @relation("ReceivedBy")
+
+}
+
+enum RoleOptions {
+  OWNER
+  MANAGER
+  STAFF
+}
+
+model Category {
+  id String @id @default(uuid())
+  organizationId String
+  name String
+  description String?
+  createdById String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+
+  //relationships
+  organizations Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creator User @relation(fields: [createdById],references: [id])
+  products Product[]
+
+  @@unique([organizationId,name])
+}
+
+model Product {
+  id String @id @default(uuid())
+  organizationId String
+  categoryId String
+  name String
+  sku String 
+  description String?
+  sellingPrice Int
+  costPrice Int
+  quantityOnHand Int
+  minimumStockLevel Int
+  createdById String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+
+  //relationships
+  organization Organization @relation(fields: [organizationId],references: [id],onDelete: Cascade)
+  category Category @relation(fields: [categoryId],references: [id],onDelete: Cascade)
+  creator User @relation(fields: [createdById],references: [id])
+
+  productSuppliers ProductSupplier[] 
+  stockMovements StockMovement[]
+  purchaseOrderItems PurchaseOrderItem[]
+  
+  @@unique([organizationId,sku])
+}
+
+model Supplier {
+  id String @id @default(uuid())
+  organizationId String
+  name String
+  email String? 
+  phone String?
+  address String?
+  createdById String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+
+  //relationships
+  organization Organization @relation(fields: [organizationId],references: [id], onDelete: Cascade)
+  creator User @relation(fields: [createdById],references: [id])
+
+  productSuppliers ProductSupplier[]
+  purchaseOrders PurchaseOrder[]
+}
+
+model ProductSupplier {
+  id String @id @default(uuid())
+  organizationId String
+  productId String
+  supplierId String
+  supplierPrice Int?
+  createdAt DateTime @default(now())
+
+  //relationships
+  organization Organization @relation(fields: [organizationId],references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId],references: [id],onDelete: Cascade)
+  supplier Supplier @relation(fields: [supplierId],references: [id],onDelete: Cascade)
+
+  @@unique([productId,supplierId])
+}
+
+model StockMovement {
+  id String @id @default(uuid())
+  organizationId String
+  productId String
+  type StockMovementType
+  quantity Int
+  previousQuantity Int
+  newQuantity Int
+  reason String?
+  changedById String
+  purchaseOrderId String?
+  createdAt DateTime @default(now())
+
+  //relationships
+  organization Organization @relation(fields: [organizationId],references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId],references: [id],onDelete: Cascade)
+  changedBy User @relation(fields: [changedById],references: [id])
+  purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId],references: [id])
+}
+
+enum StockMovementType {
+IN
+OUT
+ADJUSTMENT
+}
+
+model PurchaseOrder {
+  id String @id @default(uuid())
+  organizationId String
+  supplierId String
+  orderNumber String 
+  status PurchaseOrderStatus @default(DRAFT)
+  createdById String
+  approvedById String?
+  receivedById String?
+  submittedAt DateTime? 
+  approvedAt DateTime? 
+  receivedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+
+  //relationships
+  organization Organization @relation(fields: [organizationId],references: [id], onDelete: Cascade)
+  supplier Supplier @relation(fields: [supplierId],references: [id],onDelete: Cascade)
+  creator User @relation("PurchaseOrderCreator",fields: [createdById],references: [id])
+  approvedBy User? @relation("ApprovedBy",fields: [approvedById],references: [id])
+  receivedBy User? @relation("ReceivedBy",fields: [receivedById],references: [id])
+
+
+  purchaseOrderItems PurchaseOrderItem[]
+  stockMovements StockMovement[]
+
+  @@unique([orderNumber,organizationId])
+}
+
+enum PurchaseOrderStatus {
+DRAFT
+SUBMITTED
+APPROVED
+RECEIVED 
+CANCELLED 
+}
+
+model PurchaseOrderItem {
+  id String @id @default(uuid())
+  organizationId String
+  purchaseOrderId String
+  productId String
+  quantity Int
+  unitCost Int
+  createdAt DateTime @default(now())
+
+  //relationships
+  organization Organization @relation(fields: [organizationId],references: [id], onDelete: Cascade)
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId],references: [id],onDelete: Cascade)
+  product Product @relation(fields: [productId],references: [id],onDelete: Cascade)
+
+  @@unique([purchaseOrderId,productId])
+}
+
+model RefreshToken {
+  id String @id @default(uuid())
+  userId String 
+  tokenHash String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+
+
+  //relationships
+  user User @relation(fields: [userId],references: [id],onDelete: Cascade)
+}
