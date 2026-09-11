@@ -227,4 +227,78 @@ const updateUser = async (req,res)=>{
     }
 }
 
-export {createUser,createSubUser,updateUser}
+const disableUser = async (req,res)=>{
+    try {
+        const currentUserRole = req.user.role
+        const targetUserId = req.params.id
+        const currentUserId = req.user.id
+        const orgId= req.user.organizationId
+
+        if(!targetUserId){
+            return res.status(400).json({
+                message  : "No id provided"
+            })
+        }
+
+        if(targetUserId === currentUserId){
+            return res.status(403).json({
+                message  : "You are not allowed to Disable Your Own Account"
+            })
+        }
+
+        const userToDisable = await prisma.user.findUnique({
+            where : {
+                id : targetUserId,
+                organizationId:orgId
+            }
+        })
+
+        if(userToDisable.isActive === false){
+            return res.status(400).json({
+                message  : "User already Disabled"
+            })
+        }
+
+        if(!userToDisable){
+            return res.status(404).json({
+                message  : "User Not found"
+            })
+        }
+
+        if(currentUserRole === userToDisable.role){
+            return res.status(403).json({
+                message  : "Not Authorized"
+            })
+        }
+
+        if(currentUserRole === "MANAGER" && userToDisable.role === "OWNER"){
+            return res.status(403).json({
+                message  : "Cannot disable Owner"
+            })
+        }
+
+        const disabledUser =await prisma.user.update({
+            where : {
+                id : targetUserId,
+                organizationId:orgId
+            },
+            data : {
+                isActive : false
+            }
+        })
+
+        return res.status(200).json({
+            message :"Successfully disabled user",
+            data :{
+                name : disabledUser.name,
+                id:disabledUser.id
+            }
+        })
+
+    } catch (error) {
+        console.error("Error disabling user:", error)
+        return res.status(500).json({ message: "Internal Server Error" })
+    }
+}
+
+export {createUser,createSubUser,updateUser,disableUser}
