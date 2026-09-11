@@ -253,15 +253,15 @@ const disableUser = async (req,res)=>{
             }
         })
 
-        if(userToDisable.isActive === false){
-            return res.status(400).json({
-                message  : "User already Disabled"
-            })
-        }
-
         if(!userToDisable){
             return res.status(404).json({
                 message  : "User Not found"
+            })
+        }
+        
+        if(userToDisable.isActive === false){
+            return res.status(400).json({
+                message  : "User already Disabled"
             })
         }
 
