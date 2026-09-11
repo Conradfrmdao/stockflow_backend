@@ -258,7 +258,7 @@ const disableUser = async (req,res)=>{
                 message  : "User Not found"
             })
         }
-        
+
         if(userToDisable.isActive === false){
             return res.status(400).json({
                 message  : "User already Disabled"
@@ -301,4 +301,72 @@ const disableUser = async (req,res)=>{
     }
 }
 
-export {createUser,createSubUser,updateUser,disableUser}
+const enableUser = async (req,res)=>{
+    try {
+        const currentUserRole = req.user.role
+        const targetUserId = req.params.id
+        const orgId= req.user.organizationId
+
+        if(!targetUserId){
+            return res.status(400).json({
+                message  : "No id provided"
+            })
+        }
+
+
+        const userToEnable = await prisma.user.findUnique({
+            where : {
+                id : targetUserId,
+                organizationId:orgId
+            }
+        })
+
+        if(!userToEnable){
+            return res.status(404).json({
+                message  : "User Not found"
+            })
+        }
+
+        if(userToEnable.isActive === true){
+            return res.status(400).json({
+                message  : "User already Active"
+            })
+        }
+
+        if(currentUserRole === userToEnable.role){
+            return res.status(403).json({
+                message  : "Not Authorized"
+            })
+        }
+
+        if(currentUserRole === "MANAGER" && userToEnable.role !== "STAFF"){
+            return res.status(403).json({
+                message  : "Manager can only Edit Staff"
+            })
+        }
+
+        const enabledUser =await prisma.user.update({
+            where : {
+                id : targetUserId,
+                organizationId:orgId
+            },
+            data : {
+                isActive : true
+            }
+        })
+
+        return res.status(200).json({
+            message :"Successfully Enabled user",
+            data :{
+                name : enabledUser.name,
+                id: enabledUser.id
+            }
+        })
+
+    } catch (error) {
+        console.error("Error enabling user:", error)
+        return res.status(500).json({ message: "Internal Server Error" })
+    }
+}
+
+export {createUser,createSubUser,updateUser,disableUser,enableUser}
